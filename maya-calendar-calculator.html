@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maya 819-Day Calendar Calculator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const Calendar = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+        );
+
+        const Clock = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        );
+
+        const Info = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+        );
+
+        const ArrowRight = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+        );
+
+        const Maya819Calculator = () => {
+            const [referenceDate, setReferenceDate] = useState(() => {
+                const today = new Date();
+                return today.toISOString().split('T')[0];
+            });
+            const [currentCycleInfo, setCurrentCycleInfo] = useState(null);
+            
+            const CYCLE_LENGTH = 819;
+            const FULL_SUPER_CYCLE = 20;
+            const TOTAL_DAYS = CYCLE_LENGTH * FULL_SUPER_CYCLE;
+            const TOTAL_YEARS = TOTAL_DAYS / 365.25;
+            
+            const GMT_CORRELATION = new Date(-3113, 7, 11);
+            
+            const planets = {
+                Mercury: { period: 117, cycles: 140 },
+                Venus: { period: 584, cycles: 28 },
+                Mars: { period: 780, cycles: 21 },
+                Jupiter: { period: 399, cycles: 41 },
+                Saturn: { period: 378, cycles: 43.33 }
+            };
+            
+            const findCurrentCycle = (date) => {
+                const current = new Date(date);
+                const daysSinceEpoch = Math.floor((current - GMT_CORRELATION) / (1000 * 60 * 60 * 24));
+                
+                const cyclePosition = daysSinceEpoch % CYCLE_LENGTH;
+                const daysIntoCycle = cyclePosition;
+                const daysUntilNext819 = CYCLE_LENGTH - cyclePosition;
+                
+                const current819Start = new Date(current);
+                current819Start.setDate(current819Start.getDate() - daysIntoCycle);
+                
+                const current819End = new Date(current819Start);
+                current819End.setDate(current819End.getDate() + CYCLE_LENGTH);
+                
+                const superCyclePosition = daysSinceEpoch % TOTAL_DAYS;
+                const currentStationNumber = Math.floor(superCyclePosition / CYCLE_LENGTH) + 1;
+                const daysIntoSuperCycle = superCyclePosition;
+                const daysUntilSuperCycleEnd = TOTAL_DAYS - superCyclePosition;
+                
+                const superCycleStart = new Date(current);
+                superCycleStart.setDate(superCycleStart.getDate() - daysIntoSuperCycle);
+                
+                const superCycleEnd = new Date(superCycleStart);
+                superCycleEnd.setDate(superCycleEnd.getDate() + TOTAL_DAYS);
+                
+                return {
+                    current819Start,
+                    current819End,
+                    daysIntoCycle,
+                    daysUntilNext819,
+                    currentStationNumber,
+                    superCycleStart,
+                    superCycleEnd,
+                    daysIntoSuperCycle,
+                    daysUntilSuperCycleEnd,
+                    yearsIntoSuperCycle: (daysIntoSuperCycle / 365.25).toFixed(2),
+                    yearsUntilSuperCycleEnd: (daysUntilSuperCycleEnd / 365.25).toFixed(2)
+                };
+            };
+            
+            useEffect(() => {
+                setCurrentCycleInfo(findCurrentCycle(referenceDate));
+            }, [referenceDate]);
+            
+            const formatDate = (date) => {
+                return date.toLocaleDateString('en-US', { 
+                    weekday: 'long',
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            };
+            
+            if (!currentCycleInfo) return null;
+            
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-2xl p-8 mb-8">
+                            <div className="flex items-center gap-3 mb-6">
+                                <Calendar className="w-10 h-10 text-amber-700" />
+                                <h1 className="text-4xl font-bold text-amber-900">
+                                    Maya 819-Day Calendar - Current Cycle Finder
+                                </h1>
+                            </div>
+                            
+                            <div className="bg-amber-50 border-l-4 border-amber-700 p-4 mb-6">
+                                <div className="flex items-start gap-2">
+                                    <Info className="w-5 h-5 text-amber-700 mt-1 flex-shrink-0" />
+                                    <div className="text-sm text-amber-900">
+                                        <p className="font-semibold mb-2">Find Your Position in the Cycle:</p>
+                                        <p>This calculator determines which 819-day station you're currently in and where the current 45-year super-cycle began. It uses the GMT correlation (584283) as the reference point.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mb-8">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Select a date to analyze:
+                                </label>
+                                <input
+                                    type="date"
+                                    value={referenceDate}
+                                    onChange={(e) => setReferenceDate(e.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                                />
+                            </div>
+
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-6 mb-6">
+                                <h2 className="text-2xl font-bold text-emerald-900 mb-4 flex items-center gap-2">
+                                    <Clock className="w-6 h-6" />
+                                    Your Current 819-Day Station
+                                </h2>
+                                <div className="space-y-4">
+                                    <div className="bg-white/60 rounded p-4">
+                                        <p className="text-sm text-emerald-700 mb-1">Station {currentCycleInfo.currentStationNumber} Started:</p>
+                                        <p className="text-lg font-bold text-emerald-900">{formatDate(currentCycleInfo.current819Start)}</p>
+                                    </div>
+                                    
+                                    <div className="bg-white/60 rounded p-4">
+                                        <p className="text-sm text-emerald-700 mb-1">Station {currentCycleInfo.currentStationNumber} Ends:</p>
+                                        <p className="text-lg font-bold text-emerald-900">{formatDate(currentCycleInfo.current819End)}</p>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-emerald-100 rounded p-3">
+                                            <p className="text-xs text-emerald-700">Days Into This Station:</p>
+                                            <p className="text-2xl font-bold text-emerald-900">{currentCycleInfo.daysIntoCycle}</p>
+                                        </div>
+                                        <div className="bg-emerald-100 rounded p-3">
+                                            <p className="text-xs text-emerald-700">Days Until Next Station:</p>
+                                            <p className="text-2xl font-bold text-emerald-900">{currentCycleInfo.daysUntilNext819}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-emerald-200/50 rounded p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-semibold text-emerald-900">Progress:</span>
+                                            <span className="text-sm text-emerald-800">
+                                                {((currentCycleInfo.daysIntoCycle / CYCLE_LENGTH) * 100).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-emerald-200 rounded-full h-3">
+                                            <div 
+                                                className="bg-emerald-600 h-3 rounded-full transition-all duration-500"
+                                                style={{ width: `${(currentCycleInfo.daysIntoCycle / CYCLE_LENGTH) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-purple-50 to-violet-100 rounded-lg p-6 mb-6">
+                                <h2 className="text-2xl font-bold text-violet-900 mb-4 flex items-center gap-2">
+                                    <ArrowRight className="w-6 h-6" />
+                                    Your Current 45-Year Super Cycle
+                                </h2>
+                                <div className="space-y-4">
+                                    <div className="bg-white/60 rounded p-4">
+                                        <p className="text-sm text-violet-700 mb-1">Super Cycle (Station 1) Started:</p>
+                                        <p className="text-lg font-bold text-violet-900">{formatDate(currentCycleInfo.superCycleStart)}</p>
+                                    </div>
+                                    
+                                    <div className="bg-white/60 rounded p-4">
+                                        <p className="text-sm text-violet-700 mb-1">Super Cycle Will Complete:</p>
+                                        <p className="text-lg font-bold text-violet-900">{formatDate(currentCycleInfo.superCycleEnd)}</p>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-violet-100 rounded p-3">
+                                            <p className="text-xs text-violet-700">You are in Station:</p>
+                                            <p className="text-2xl font-bold text-violet-900">{currentCycleInfo.currentStationNumber} of 20</p>
+                                        </div>
+                                        <div className="bg-violet-100 rounded p-3">
+                                            <p className="text-xs text-violet-700">Years Into Super Cycle:</p>
+                                            <p className="text-2xl font-bold text-violet-900">{currentCycleInfo.yearsIntoSuperCycle}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-violet-100 rounded p-3">
+                                            <p className="text-xs text-violet-700">Days Into Super Cycle:</p>
+                                            <p className="text-xl font-bold text-violet-900">{currentCycleInfo.daysIntoSuperCycle.toLocaleString()}</p>
+                                        </div>
+                                        <div className="bg-violet-100 rounded p-3">
+                                            <p className="text-xs text-violet-700">Years Until Completion:</p>
+                                            <p className="text-xl font-bold text-violet-900">{currentCycleInfo.yearsUntilSuperCycleEnd}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-violet-200/50 rounded p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-semibold text-violet-900">Super Cycle Progress:</span>
+                                            <span className="text-sm text-violet-800">
+                                                {((currentCycleInfo.daysIntoSuperCycle / TOTAL_DAYS) * 100).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-violet-200 rounded-full h-3">
+                                            <div 
+                                                className="bg-violet-600 h-3 rounded-full transition-all duration-500"
+                                                style={{ width: `${(currentCycleInfo.daysIntoSuperCycle / TOTAL_DAYS) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-6 mb-6">
+                                <h2 className="text-xl font-bold text-indigo-900 mb-4">
+                                    Planetary Synodic Periods in the Super Cycle
+                                </h2>
+                                <div className="space-y-3 text-sm">
+                                    {Object.entries(planets).map(([name, data]) => (
+                                        <div key={name} className="flex justify-between items-center pb-2 border-b border-indigo-200">
+                                            <span className="font-semibold text-indigo-900">{name}</span>
+                                            <div className="text-right text-indigo-700">
+                                                <div>{data.period} days/cycle × {data.cycles} cycles</div>
+                                                <div className="text-xs">= {(data.period * data.cycles).toFixed(0)} days</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <h3 className="font-bold text-amber-900 mb-2">Understanding the System:</h3>
+                                <ul className="space-y-2 text-sm text-amber-800">
+                                    <li className="flex gap-2">
+                                        <span>•</span>
+                                        <span>Each <strong>819-day station</strong> is one unit in the larger pattern</span>
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <span>•</span>
+                                        <span><strong>20 stations</strong> complete one full planetary super cycle</span>
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <span>•</span>
+                                        <span>The cycle repeats continuously from the Maya epoch (~3114 BCE)</span>
+                                    </li>
+                                    <li className="flex gap-2">
+                                        <span>•</span>
+                                        <span>All five visible planets align after 16,380 days (≈45 years)</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<Maya819Calculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
