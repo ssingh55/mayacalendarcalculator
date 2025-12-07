@@ -64,6 +64,18 @@
             </svg>
         );
 
+        // --- ICONS FOR VERDICT ---
+        const Star = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+        );
+        const Shield = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+        );
+
         const Maya819Calculator = () => {
             const [referenceDate, setReferenceDate] = useState(() => {
                 const today = new Date();
@@ -163,6 +175,55 @@
                 return normalizeDegrees(Lp + SigmaL);
             };
 
+            const getTithiQuality = (tithiIndex, isShukla) => {
+                // Adjust index to 1-15 scale
+                const t = tithiIndex > 15 ? tithiIndex - 15 : tithiIndex;
+
+                // Classification (Nanda, Bhadra, Jaya, Rikta, Purna)
+                const typeMap = {
+                    1: 'Nanda (Joy)', 6: 'Nanda (Joy)', 11: 'Nanda (Joy)',
+                    2: 'Bhadra (Good)', 7: 'Bhadra (Good)', 12: 'Bhadra (Good)',
+                    3: 'Jaya (Victory)', 8: 'Jaya (Victory)', 13: 'Jaya (Victory)',
+                    4: 'Rikta (Empty)', 9: 'Rikta (Empty)', 14: 'Rikta (Empty)',
+                    5: 'Purna (Full)', 10: 'Purna (Full)', 15: 'Purna (Full)'
+                };
+
+                let quality = 'Neutral';
+                let advice = 'Good for routine work.';
+                let isGood = true;
+
+                if ([4, 9, 14].includes(t)) {
+                    quality = 'Caution (Rikta)';
+                    advice = 'Avoid starting important new ventures. Good for debate, cleaning, or surgery.';
+                    isGood = false;
+                } else if ([5, 10, 15].includes(t)) {
+                    quality = 'Excellent (Purna)';
+                    advice = 'Highly auspicious for completing tasks and harvest.';
+                } else if ([3, 8, 13].includes(t)) {
+                    quality = 'Victory (Jaya)';
+                    advice = 'Great for overcoming obstacles and competition.';
+                } else if (t === 30 || tithiIndex === 30) { // Amavasya
+                    quality = 'Ancestral (Amavasya)';
+                    advice = 'Rest, meditation, and ancestral offerings. Avoid material beginnings.';
+                    isGood = false;
+                }
+
+                return { quality, advice, isGood, type: typeMap[t] || 'Special' };
+            };
+
+            const getMayaDirectionQuality = (stationNum) => {
+                // 4-part rotation: East -> North -> West -> South
+                const remainder = (stationNum - 1) % 4;
+
+                switch (remainder) {
+                    case 0: return { dir: 'EAST', color: 'Red', meaning: 'Birth/Sunrise', advice: 'Excellent for starting new projects.', isGood: true };
+                    case 1: return { dir: 'NORTH', color: 'White', meaning: 'Ancestors/Wisdom', advice: 'Good for planning and seeking counsel.', isGood: true };
+                    case 2: return { dir: 'WEST', color: 'Black', meaning: 'Sunset/Underworld', advice: 'Caution. Time for introspection and ending things.', isGood: false };
+                    case 3: return { dir: 'SOUTH', color: 'Yellow', meaning: 'Harvest/Zenith', advice: 'Excellent for growth and abundance.', isGood: true };
+                    default: return { dir: 'Unknown', color: 'Gray', meaning: '', advice: '', isGood: true };
+                }
+            };
+
             const calculateAccurateHinduDate = (jdn, dateObj, isPurnimanta) => {
                 const sunLong = getSunLongitude(jdn);
                 const moonLong = getMoonLongitude(jdn);
@@ -219,7 +280,8 @@
                     moonPhasePercent: (diff / 360) * 100,
                     sunLong: sunLong.toFixed(2),
                     moonLong: moonLong.toFixed(2),
-                    isPurnimantaApplied: isPurnimanta && !isShukla
+                    isPurnimantaApplied: isPurnimanta && !isShukla,
+                    tithiQuality: getTithiQuality(tithiIndex, isShukla)
                 };
             };
 
@@ -301,7 +363,37 @@
                 // Calculate Accurate Hindu Date (Vikram Samvat)
                 const accurateHindu = calculateAccurateHinduDate(JDN_Current, new Date(Y, M - 1, D), isPurnimanta);
 
+                // --- VERDICT LOGIC ---
+                const mayaQuality = getMayaDirectionQuality(currentStationNumber);
+                let verdict = "Neutral Day";
+                let verdictColor = "text-gray-600";
+                let verdictBg = "bg-gray-100";
+
+                if (!accurateHindu.tithiQuality.isGood || !mayaQuality.isGood) {
+                    verdict = "Use Caution";
+                    verdictColor = "text-amber-700";
+                    verdictBg = "bg-amber-100";
+                    if (!accurateHindu.tithiQuality.isGood && !mayaQuality.isGood) {
+                        verdict = "Avoid Major Risks";
+                        verdictColor = "text-red-700";
+                        verdictBg = "bg-red-100";
+                    }
+                } else {
+                    verdict = "Good Day";
+                    verdictColor = "text-blue-700";
+                    verdictBg = "bg-blue-100";
+                    if (accurateHindu.tithiQuality.quality.includes('Purna') || accurateHindu.tithiQuality.quality.includes('Jaya')) {
+                        verdict = "Excellent / Auspicious";
+                        verdictColor = "text-green-700";
+                        verdictBg = "bg-green-100";
+                    }
+                }
+
                 return {
+                    mayaQuality,
+                    verdict,
+                    verdictColor,
+                    verdictBg,
                     current819Start,
                     current819End,
                     daysIntoCycle,
@@ -345,6 +437,8 @@
                                     Maya 819 & Vikram Samvat Calculator
                                 </h1>
                             </div>
+
+
 
                             <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6">
                                 <div className="flex items-start gap-2">
@@ -514,14 +608,15 @@
                                         </div>
                                     </div>
 
-                                    {/* PLANETS */}
-                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
-                                        {currentCycleInfo.planetaryAlignments.map(p => (
-                                            <div key={p.name} className={`text-center p-2 rounded text-xs border ${p.isAligned ? 'bg-green-100 text-green-900 border-green-400 font-bold' : 'bg-white/40 text-gray-600 border-transparent'}`}>
-                                                {p.name}
-                                                {p.isAligned && <span className="block text-[9px] text-green-700">SYNC</span>}
-                                            </div>
-                                        ))}
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <div className="bg-white/50 rounded p-3 text-center">
+                                            <p className="text-xs text-emerald-700 uppercase font-bold">Days Covered</p>
+                                            <p className="text-xl font-bold text-emerald-900">{currentCycleInfo.daysIntoCycle}</p>
+                                        </div>
+                                        <div className="bg-white/50 rounded p-3 text-center">
+                                            <p className="text-xs text-emerald-700 uppercase font-bold">Days to Come</p>
+                                            <p className="text-xl font-bold text-emerald-900">{currentCycleInfo.daysUntilNext819}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -680,6 +775,66 @@
                                 </div>
                             </div>
 
+                            {/* VERDICT BANNER */}
+                            <div className={`p-6 text-center ${currentCycleInfo.verdictBg} rounded-lg mb-8 border-b-4 border-white shadow-md`}>
+                                <h2 className="text-sm font-bold uppercase tracking-widest opacity-60 mb-1">Daily Energy Verdict</h2>
+                                <p className={`text-3xl font-extrabold ${currentCycleInfo.verdictColor} flex justify-center items-center gap-2`}>
+                                    {currentCycleInfo.verdict === "Use Caution" || currentCycleInfo.verdict === "Avoid Major Risks" ? <Shield className="w-8 h-8" /> : <Star className="w-8 h-8" />}
+                                    {currentCycleInfo.verdict}
+                                </p>
+                            </div>
+
+                            {/* SPLIT ANALYSIS */}
+                            <div className="grid md:grid-cols-2 gap-4 mb-8">
+                                {/* LEFT: HINDU ANALYSIS */}
+                                <div className="p-6 bg-orange-50/50 rounded-lg border border-orange-100">
+                                    <h3 className="text-xl font-bold text-orange-900 mb-4 flex items-center gap-2">
+                                        <span className="text-2xl">🕉️</span> Lunar Energy
+                                    </h3>
+
+                                    <div className="space-y-4">
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <p className="text-xs text-orange-600 uppercase font-bold">Tithi (Day)</p>
+                                            <p className="text-lg font-bold text-gray-800">{currentCycleInfo.vikramSamvat.tithiName}</p>
+                                            <p className="text-sm text-gray-600">{currentCycleInfo.vikramSamvat.paksha}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-700 mb-1">Quality: <span className={currentCycleInfo.vikramSamvat.tithiQuality.isGood ? "text-green-600" : "text-red-600"}>{currentCycleInfo.vikramSamvat.tithiQuality.quality}</span></p>
+                                            <p className="text-sm text-gray-600 italic">"{currentCycleInfo.vikramSamvat.tithiQuality.advice}"</p>
+                                        </div>
+
+                                        <div className="text-xs text-gray-400 mt-2">
+                                            *Avoid new starts on Rikta days (4, 9, 14).
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT: MAYA ANALYSIS */}
+                                <div className="p-6 bg-teal-50/50 rounded-lg border border-teal-100">
+                                    <h3 className="text-xl font-bold text-teal-900 mb-4 flex items-center gap-2">
+                                        <span className="text-2xl">🏛️</span> Solar/Station Energy
+                                    </h3>
+
+                                    <div className="space-y-4">
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <p className="text-xs text-teal-600 uppercase font-bold">Direction & Color</p>
+                                            <p className="text-lg font-bold text-gray-800">{currentCycleInfo.mayaQuality.dir} ({currentCycleInfo.mayaQuality.color})</p>
+                                            <p className="text-sm text-gray-600">{currentCycleInfo.mayaQuality.meaning}</p>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-700 mb-1">Quality: <span className={currentCycleInfo.mayaQuality.isGood ? "text-green-600" : "text-red-600"}>{currentCycleInfo.mayaQuality.isGood ? "Supportive" : "Challenging"}</span></p>
+                                            <p className="text-sm text-gray-600 italic">"{currentCycleInfo.mayaQuality.advice}"</p>
+                                        </div>
+
+                                        <div className="text-xs text-gray-400 mt-2">
+                                            *West/Black days represent endings.
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
                             {/* Educational Context */}
                             <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 md:p-6">
                                 <h3 className="font-bold text-amber-900 mb-3 text-lg">Understanding the 819-Day System:</h3>
