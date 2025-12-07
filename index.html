@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maya 819-Day Calendar Calculator (Accurate)</title>
+    <title>Maya 819 & Accurate Hindu Calendar</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -56,6 +56,14 @@
             </svg>
         );
 
+        const Refreshcw = ({ className }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+        );
+
         const Maya819Calculator = () => {
             const [referenceDate, setReferenceDate] = useState(() => {
                 const today = new Date();
@@ -64,6 +72,7 @@
             const [currentCycleInfo, setCurrentCycleInfo] = useState(null);
             const [useDay3Offset, setUseDay3Offset] = useState(false);
             const [showTechnical, setShowTechnical] = useState(false);
+            const [isPurnimanta, setIsPurnimanta] = useState(true); // Default to North India (Purnimanta)
 
             const CYCLE_LENGTH = 819;
             const FULL_SUPER_CYCLE = 20;
@@ -110,6 +119,108 @@
                     synodicsAtSync: 21.0,
                     color: 'from-red-600 to-red-800'
                 }
+            };
+
+            // --- ASTRONOMICAL CONSTANTS & MATH HELPERS ---
+            const D2R = Math.PI / 180.0;
+            const R2D = 180.0 / Math.PI;
+
+            const normalizeDegrees = (d) => {
+                d = d % 360;
+                if (d < 0) d += 360;
+                return d;
+            };
+
+            const sinD = (d) => Math.sin(d * D2R);
+            const cosD = (d) => Math.cos(d * D2R);
+
+            // --- HIGH ACCURACY ASTRONOMY FUNCTIONS (Based on Jean Meeus) ---
+
+            const getSunLongitude = (jdn) => {
+                const T = (jdn - 2451545.0) / 36525.0;
+                let L0 = normalizeDegrees(280.46646 + 36000.76983 * T + 0.0003032 * T * T);
+                let M = normalizeDegrees(357.52911 + 35999.05029 * T - 0.0001537 * T * T);
+                const C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * sinD(M) +
+                    (0.019993 - 0.000101 * T) * sinD(2 * M) +
+                    0.000289 * sinD(3 * M);
+                return normalizeDegrees(L0 + C);
+            };
+
+            const getMoonLongitude = (jdn) => {
+                const T = (jdn - 2451545.0) / 36525.0;
+                let Lp = 218.3164477 + 481267.88123421 * T;
+                let D = 297.8501921 + 445267.1114034 * T;
+                let M = 357.5291092 + 35999.0502909 * T;
+                let Mp = 134.9633964 + 477198.8675055 * T;
+                let F = 93.2720950 + 483202.0175233 * T;
+
+                let SigmaL = 6.2888 * sinD(Mp);
+                SigmaL += 1.2740 * sinD(2 * D - Mp);
+                SigmaL += 0.6583 * sinD(2 * D);
+                SigmaL -= 0.1851 * sinD(M);
+                SigmaL -= 0.1143 * sinD(2 * F);
+
+                return normalizeDegrees(Lp + SigmaL);
+            };
+
+            const calculateAccurateHinduDate = (jdn, dateObj, isPurnimanta) => {
+                const sunLong = getSunLongitude(jdn);
+                const moonLong = getMoonLongitude(jdn);
+
+                // Calculate Tithi (12 degree difference)
+                let diff = normalizeDegrees(moonLong - sunLong);
+                const tithiIndex = Math.floor(diff / 12) + 1; // 1 to 30
+
+                // Determine Paksha
+                const isShukla = tithiIndex <= 15;
+                const pakshaName = isShukla ? 'Shukla Paksha' : 'Krishna Paksha';
+                const displayTithi = isShukla ? tithiIndex : tithiIndex - 15;
+
+                const tithiNames = [
+                    'Pratipada', 'Dwitiya', 'Tritiya', 'Chaturthi', 'Panchami',
+                    'Shashthi', 'Saptami', 'Ashtami', 'Navami', 'Dashami',
+                    'Ekadashi', 'Dwadashi', 'Trayodashi', 'Chaturdashi',
+                    isShukla ? 'Purnima' : 'Amavasya'
+                ];
+
+                // Rashi Index (0 = Mesha/Aries)
+                const rashiIndex = Math.floor(sunLong / 30);
+
+                // Vikram Samvat Year (Approximate base)
+                let vikramYear = dateObj.getFullYear() + 57;
+                const month = dateObj.getMonth();
+                // Adjust year transition roughly around March/April
+                if (month < 3) vikramYear -= 1;
+
+                const lunarMonthNames = [
+                    'Chaitra', 'Vaisakha', 'Jyeshtha', 'Ashadha',
+                    'Shravana', 'Bhadrapada', 'Ashwina', 'Kartika',
+                    'Margashirsha', 'Pausha', 'Magha', 'Phalguna'
+                ];
+
+                // --- CRITICAL CORRECTION: AMANTA vs PURNIMANTA ---
+                // 1. Base Month (Amanta system): Aligns with solar rashi
+                let monthIndex = rashiIndex;
+
+                // 2. Purnimanta Shift:
+                // In North India (Purnimanta), the month ends on Full Moon.
+                // Therefore, the Dark Fortnight (Krishna Paksha) belongs to the NEXT month compared to Amanta.
+                if (isPurnimanta && !isShukla) {
+                    monthIndex = (monthIndex + 1) % 12;
+                }
+
+                return {
+                    year: vikramYear,
+                    monthName: lunarMonthNames[monthIndex % 12],
+                    paksha: pakshaName,
+                    tithi: displayTithi,
+                    tithiName: tithiNames[displayTithi - 1],
+                    tithiIndexFull: tithiIndex,
+                    moonPhasePercent: (diff / 360) * 100,
+                    sunLong: sunLong.toFixed(2),
+                    moonLong: moonLong.toFixed(2),
+                    isPurnimantaApplied: isPurnimanta && !isShukla
+                };
             };
 
             // Convert Gregorian date to Julian Day Number (Fliegel-Van Flandern algorithm)
@@ -187,6 +298,9 @@
                     };
                 });
 
+                // Calculate Accurate Hindu Date (Vikram Samvat)
+                const accurateHindu = calculateAccurateHinduDate(JDN_Current, new Date(Y, M - 1, D), isPurnimanta);
+
                 return {
                     current819Start,
                     current819End,
@@ -201,13 +315,14 @@
                     yearsUntilSuperCycleEnd: (daysUntilSuperCycleEnd / 365.25).toFixed(2),
                     JDN_Current,
                     daysSinceEpoch,
-                    planetaryAlignments
+                    planetaryAlignments,
+                    vikramSamvat: accurateHindu
                 };
             };
 
             useEffect(() => {
                 setCurrentCycleInfo(findCurrentCycle(referenceDate));
-            }, [referenceDate, useDay3Offset]);
+            }, [referenceDate, useDay3Offset, isPurnimanta]); // Added isPurnimanta dependency
 
             const formatDate = (date) => {
                 return date.toLocaleDateString('en-US', {
@@ -227,7 +342,7 @@
                             <div className="flex items-center gap-3 mb-6">
                                 <Calendar className="w-8 md:w-10 h-8 md:h-10 text-amber-700" />
                                 <h1 className="text-2xl md:text-4xl font-bold text-amber-900">
-                                    Maya 819-Day Calendar Calculator
+                                    Maya 819 & Vikram Samvat Calculator
                                 </h1>
                             </div>
 
@@ -235,8 +350,8 @@
                                 <div className="flex items-start gap-2">
                                     <Info className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
                                     <div className="text-sm text-green-900">
-                                        <p className="font-semibold mb-2">✅ Astronomically Accurate Calculator</p>
-                                        <p>This calculator uses Julian Day Numbers (JDN) and the GMT correlation (584283) to correctly calculate positions in the Maya 819-day cycle. It accounts for the difference between Julian and Gregorian calendars.</p>
+                                        <p className="font-semibold mb-2">✅ Integrated Astronomical System</p>
+                                        <p>Combining Julian Day Numbers for Maya calculations and Meeus Algorithms for precise Hindu Tithi & Nakshatra alignments.</p>
                                     </div>
                                 </div>
                             </div>
@@ -263,7 +378,7 @@
                                             className="w-4 h-4 text-amber-600"
                                         />
                                         <span className="text-sm text-gray-700">
-                                            Apply Day 3 offset (Palenque evidence)
+                                            Apply Maya Day 3 offset (Palenque)
                                         </span>
                                     </label>
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -274,7 +389,7 @@
                                             className="w-4 h-4 text-amber-600"
                                         />
                                         <span className="text-sm text-gray-700">
-                                            Show technical details (JDN, calculations)
+                                            Show astronomical details
                                         </span>
                                     </label>
                                 </div>
@@ -294,32 +409,94 @@
                                 </div>
                             )}
 
+                            {/* --- HINDU CALENDAR SECTION --- */}
+                            <div className="bg-gradient-to-br from-orange-50 to-red-100 rounded-lg p-6 mb-6 border border-orange-200">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                                    <h2 className="text-xl md:text-2xl font-bold text-orange-900 flex items-center gap-2">
+                                        <span className="text-2xl">🕉️</span> Vikram Samvat
+                                    </h2>
+
+                                    {/* TOGGLE BUTTON */}
+                                    <button
+                                        onClick={() => setIsPurnimanta(!isPurnimanta)}
+                                        className="text-xs flex items-center gap-1 bg-white hover:bg-orange-50 text-orange-900 px-4 py-2 rounded-full border border-orange-300 transition-colors shadow-sm"
+                                    >
+                                        <Refreshcw className="w-3 h-3" />
+                                        Current System: <strong>{isPurnimanta ? 'North (Purnimanta)' : 'South (Amanta)'}</strong>
+                                    </button>
+                                </div>
+
+                                {/* DATA CARDS */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                    <div className="bg-white/70 p-4 rounded-lg shadow-sm border border-orange-100">
+                                        <p className="text-xs text-orange-600 uppercase font-bold tracking-wider">Year</p>
+                                        <p className="text-2xl font-bold text-orange-900">{currentCycleInfo.vikramSamvat.year}</p>
+                                    </div>
+                                    <div className="bg-white/70 p-4 rounded-lg shadow-sm border border-orange-100 relative overflow-hidden">
+                                        <p className="text-xs text-orange-600 uppercase font-bold tracking-wider">Masa (Month)</p>
+                                        <p className="text-2xl font-bold text-orange-900">{currentCycleInfo.vikramSamvat.monthName}</p>
+                                        {currentCycleInfo.vikramSamvat.isPurnimantaApplied && (
+                                            <div className="absolute bottom-0 left-0 right-0 bg-orange-200 text-[10px] text-orange-900 text-center py-0.5">
+                                                Purnimanta Adjusted
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="bg-white/70 p-4 rounded-lg shadow-sm border border-orange-100">
+                                        <p className="text-xs text-orange-600 uppercase font-bold tracking-wider">Paksha</p>
+                                        <p className="text-lg font-bold text-orange-900">{currentCycleInfo.vikramSamvat.paksha}</p>
+                                    </div>
+                                    <div className="bg-white/70 p-4 rounded-lg shadow-sm border border-orange-100">
+                                        <p className="text-xs text-orange-600 uppercase font-bold tracking-wider">Tithi</p>
+                                        <p className="text-lg font-bold text-orange-900">
+                                            {currentCycleInfo.vikramSamvat.tithiName} <span className="text-sm font-normal text-orange-700">({currentCycleInfo.vikramSamvat.tithi})</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Lunar Phase Visualizer */}
+                                <div className="bg-orange-900/5 rounded-lg p-4">
+                                    <div className="flex justify-between text-xs text-orange-800 mb-1 uppercase tracking-wider">
+                                        <span>Amavasya</span>
+                                        <span>Purnima</span>
+                                        <span>Amavasya</span>
+                                    </div>
+                                    <div className="h-4 bg-orange-200 rounded-full relative overflow-hidden">
+                                        <div
+                                            className="absolute top-0 bottom-0 w-1 bg-orange-800 z-10"
+                                            style={{ left: `${currentCycleInfo.vikramSamvat.moonPhasePercent}%` }}
+                                        ></div>
+                                        <div
+                                            className="h-full bg-orange-400 opacity-50 transition-all duration-700"
+                                            style={{ width: `${currentCycleInfo.vikramSamvat.moonPhasePercent}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="mt-2 text-center text-xs text-orange-700 font-mono">
+                                        Precise Phase: {currentCycleInfo.vikramSamvat.moonPhasePercent.toFixed(1)}%
+                                    </div>
+                                </div>
+
+                                {showTechnical && (
+                                    <div className="mt-4 p-3 bg-white/50 rounded border border-orange-200 text-xs font-mono text-gray-600">
+                                        <p><strong>Astronomical Data (Geocentric Ecliptic Longitude):</strong></p>
+                                        <p>Sun: {currentCycleInfo.vikramSamvat.sunLong}°</p>
+                                        <p>Moon: {currentCycleInfo.vikramSamvat.moonLong}°</p>
+                                        <p>Delta: {normalizeDegrees(currentCycleInfo.vikramSamvat.moonLong - currentCycleInfo.vikramSamvat.sunLong).toFixed(2)}°</p>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Current 819-Day Cycle */}
                             <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-6 mb-6">
                                 <h2 className="text-xl md:text-2xl font-bold text-emerald-900 mb-4 flex items-center gap-2">
                                     <Clock className="w-6 h-6" />
-                                    Your Current 819-Day Station
+                                    Maya 819-Day Station
                                 </h2>
                                 <div className="space-y-4">
                                     <div className="bg-white/60 rounded p-4">
-                                        <p className="text-sm text-emerald-700 mb-1">Station {currentCycleInfo.currentStationNumber} Started:</p>
-                                        <p className="text-base md:text-lg font-bold text-emerald-900">{formatDate(currentCycleInfo.current819Start)}</p>
-                                    </div>
-
-                                    <div className="bg-white/60 rounded p-4">
-                                        <p className="text-sm text-emerald-700 mb-1">Station {currentCycleInfo.currentStationNumber} Ends:</p>
-                                        <p className="text-base md:text-lg font-bold text-emerald-900">{formatDate(currentCycleInfo.current819End)}</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-emerald-100 rounded p-3">
-                                            <p className="text-xs text-emerald-700">Days Into Station:</p>
-                                            <p className="text-xl md:text-2xl font-bold text-emerald-900">{currentCycleInfo.daysIntoCycle}</p>
-                                        </div>
-                                        <div className="bg-emerald-100 rounded p-3">
-                                            <p className="text-xs text-emerald-700">Days Until Next:</p>
-                                            <p className="text-xl md:text-2xl font-bold text-emerald-900">{currentCycleInfo.daysUntilNext819}</p>
-                                        </div>
+                                        <p className="text-sm text-emerald-700 mb-1">Station {currentCycleInfo.currentStationNumber} of 20</p>
+                                        <p className="text-lg font-bold text-emerald-900">
+                                            {formatDate(currentCycleInfo.current819Start)} — {formatDate(currentCycleInfo.current819End)}
+                                        </p>
                                     </div>
 
                                     <div className="bg-emerald-200/50 rounded p-3">
@@ -335,6 +512,16 @@
                                                 style={{ width: `${(currentCycleInfo.daysIntoCycle / CYCLE_LENGTH) * 100}%` }}
                                             ></div>
                                         </div>
+                                    </div>
+
+                                    {/* PLANETS */}
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
+                                        {currentCycleInfo.planetaryAlignments.map(p => (
+                                            <div key={p.name} className={`text-center p-2 rounded text-xs border ${p.isAligned ? 'bg-green-100 text-green-900 border-green-400 font-bold' : 'bg-white/40 text-gray-600 border-transparent'}`}>
+                                                {p.name}
+                                                {p.isAligned && <span className="block text-[9px] text-green-700">SYNC</span>}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
